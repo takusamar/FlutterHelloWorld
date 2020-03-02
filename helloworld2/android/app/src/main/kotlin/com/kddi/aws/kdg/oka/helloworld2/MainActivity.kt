@@ -1,4 +1,4 @@
-package com.hinayhinaylab.helloworld
+package com.kddi.aws.kdg.oka.helloworld2
 
 import androidx.annotation.NonNull;
 import io.flutter.embedding.android.FlutterActivity
