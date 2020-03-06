@@ -21,7 +21,9 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const PlayMoviePage(),
+      home: const PlayMoviePage(
+        'https://archive.org/download/SampleVideo1280x7205mb/SampleVideo_1280x720_5mb.mp4'
+      ),
     );
   }
 }

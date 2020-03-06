@@ -8,8 +8,8 @@ import 'package:flutter/rendering.dart';
 import 'package:video_player/video_player.dart';
 
 class PlayMoviePage extends StatefulWidget {
-  const PlayMoviePage():super();
-  final String movieUrl = 'https://archive.org/download/SampleVideo1280x7205mb/SampleVideo_1280x720_5mb.mp4';
+  const PlayMoviePage(this.movieUrl):super();
+  final String movieUrl;
 
   @override
   _PlayMoviePageState createState() => _PlayMoviePageState();
@@ -37,7 +37,7 @@ class _PlayMoviePageState extends State<PlayMoviePage> {
     final byteData =
         await image.toByteData(format: ui.ImageByteFormat.png);
     final pngBytes = byteData.buffer.asUint8List();
-    print('pngBytes: ${pngBytes}');
+    print('pngBytes: $pngBytes');
     final image2 = Image.memory(pngBytes);
     print(image2.toString());
     return image2;
@@ -48,9 +48,23 @@ class _PlayMoviePageState extends State<PlayMoviePage> {
     _timer = Timer(const Duration(seconds: 1), _refresh);
   }
 
-  void setMovieFile() {
-    //_controller = VideoPlayerController.file(_movieFile)
+  void setMovieUrl() {
     _controller = VideoPlayerController.network(widget.movieUrl)
+      ..initialize().then((_){
+        setState(() {});
+      });
+    super.initState();
+  }
+
+  Future<void> setMovieFile() async {
+    final moviePath = await FilePicker.getFilePath(
+        type: FileType.ANY);
+    print(moviePath);
+    setState(() {
+      _movieFile = File(moviePath);
+    });
+
+    _controller = VideoPlayerController.file(_movieFile)
       ..initialize().then((_){
       setState(() {});
     });
@@ -76,6 +90,15 @@ class _PlayMoviePageState extends State<PlayMoviePage> {
             Row(
               children: <Widget>[
                 RaisedButton(
+                  child: const Text('set movie url'),
+                  color: Colors.blue,
+                  textColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  onPressed: setMovieUrl,
+                ),
+                RaisedButton(
                   child: const Text('select movie file'),
                   color: Colors.blue,
                   textColor: Colors.white,
@@ -83,13 +106,7 @@ class _PlayMoviePageState extends State<PlayMoviePage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   onPressed: () async {
-//                    final moviePath = await FilePicker.getFilePath(
-//                      type: FileType.ANY);
-//                    print(moviePath);
-//                    setState(() {
-//                      _movieFile = File(moviePath);
-//                    });
-                    setMovieFile();
+                    await setMovieFile();
                   },
                 ),
                 Text(_movieFile == null ? '' : _movieFile.path.split('/').last),
@@ -106,7 +123,9 @@ class _PlayMoviePageState extends State<PlayMoviePage> {
                           BuildContext context,
                           AsyncSnapshot<Duration> snapshot) {
                         if (snapshot.hasData) {
-                          return Text(snapshot.data.toString().split('.').first);
+                          return Text(
+                              snapshot.data.toString().split('.').first,
+                          );
                         }
                         else {
                           return const SizedBox();
