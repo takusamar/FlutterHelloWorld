@@ -1,0 +1,85 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    # Note that this workflow uses the latest stable version of the Dart SDK.
+    # Docker images for other release channels - like dev and beta - are also
+    # available. See https://hub.docker.com/r/google/dart/ for the available
+    # images.
+    container:
+      image:  google/dart:latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Select Xcode version 12.2
+        run: sudo xcode-select -s '/Applications/Xcode_12.2.app/Contents/Developer'
+      
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: setup cache
+        uses: actions/cache@v1
+        with: 
+          path: /Users/runner/hostedtoolcache/flutter
+          key: ${{runner.OS}}-flutter-install-cache
+
+      - name: install flutter      
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: '1.22.4'
+          channel: 'stable'
+          
+      - name: flutter dependencies install
+        run: flutter pub get
+
+      # 証明書関連のファイルを生成します
+      - name: Import Provisioning Profile
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          touch ~/Library/MobileDevice/Provisioning\ Profiles/decoded.mobileprovision
+          echo -n '${{ secrets.PROVISIONING_PROFILE }}' | base64 -d -o ~/Library/MobileDevice/Provisioning\ Profiles/decoded.mobileprovision
+
+      # 署名をします
+      - name: Import Code-Signing Certificates
+        uses: Apple-Actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
+          p12-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+      
+      - run: flutter build ios
+
+      # 頑張ってipaを出力します
+      - name: XCode Build Archive
+        uses: yukiarrr/ios-build-action@v1.3.1
+        with:
+          project-path: ios/Runner.xcodeproj
+          p12-base64: ${{ secrets.CERTIFICATES_P12 }}
+          certificate-password: ${{ secrets.CERTIFICATE_PASSWORD }}
+          mobileprovision-base64: ${{ secrets.PROVISIONING_PROFILE }}
+          code-signing-identity: ${{ secrets.CODE_SIGNING_IDENTITY }}
+          team-id: ${{ secrets.TEAM_ID }}
+          workspace-path: ios/Runner.xcworkspace 
+          output-path: app-release.ipa
+          export-method: ad-hoc
+
+      # ipaをdeploygate経由で配布します
+      - name: Distribute iOS app
+        run: |
+          curl \
+            -H "Authorization: token ${{secrets.DEPLOYGATE_API_KEY}}" \
+            -F "file=@/Users/runner/work/tapiten_app/tapiten_app/app-release.ipa" \
+            -F "message=git:$GIT_HASH" \
+            -F "distribution_name=$GIT_BRANCH" \
+            -F "release_note=new ios build" \
+            -F "distribution_key=${{secrets.IOS_DISTRIBUTION_HASH}}" \
+            "https://deploygate.com/api/users/${{secrets.DEPLOYGATE_USER}}/apps"
+
